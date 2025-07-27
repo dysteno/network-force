@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>협업 타이핑 룸</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            overflow: hidden;
+        }
+        .turn-active {
+            border: 2px solid #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+        .turn-inactive {
+            border: 2px solid #f87171;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 flex flex-col h-screen p-4 gap-4">
+
+    <header class="flex justify-between items-center bg-slate-800 p-3 rounded-lg shadow-lg">
+        <h1 id="roomTitle" class="text-xl font-bold text-white"></h1>
+        <div id="userInfo" class="text-sm text-slate-400 flex items-center gap-4">
+            </div>
+        <div class="flex items-center">
+            <button id="openAutotextModal" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors mr-4">
+                상용구 관리
+            </button>
+            <button id="openPresenterMode" class="hidden bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition-colors mr-4">
+                프레젠테이션 모드
+            </button>
+            <button id="exitButton" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                방 나가기
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow flex gap-4 h-[calc(100vh-160px)]">
+        <div id="typists-area" class="w-1/2 flex flex-col gap-4">
+            <div id="player1-container" class="bg-slate-800 p-4 rounded-lg flex-1 flex flex-col">
+                <h2 id="player1-nickname" class="text-lg font-bold mb-2 text-white">입력자 1</h2>
+                <textarea id="player1-textarea" class="w-full h-full bg-slate-900 rounded-md p-3 text-lg focus:outline-none resize-none" disabled></textarea>
+            </div>
+            <div id="player2-container" class="bg-slate-800 p-4 rounded-lg flex-1 flex flex-col">
+                <h2 id="player2-nickname" class="text-lg font-bold mb-2 text-white">입력자 2</h2>
+                 <div id="player2-waiting" class="w-full h-full flex items-center justify-center bg-slate-900 rounded-md">
+                    <p class="text-slate-500">대기 중...</p>
+                </div>
+                <textarea id="player2-textarea" class="w-full h-full bg-slate-900 rounded-md p-3 text-lg focus:outline-none resize-none hidden" disabled></textarea>
+            </div>
+        </div>
+
+        <div id="completed-area" class="w-1/2 bg-slate-800 p-4 rounded-lg flex flex-col shadow-inner">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-lg font-bold text-white">완성된 문장</h2>
+                <div class="flex items-center gap-2">
+                    <div id="content-controls" class="hidden flex items-center gap-2">
+                        <button id="btn-copy-content" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors">내용 복사</button>
+                        <button id="btn-reset-content" class="bg-red-800 hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors">내용 초기화</button>
+                    </div>
+                    <div id="font-controls" class="hidden">
+                        <button id="decrease-font" class="bg-slate-700 hover:bg-slate-600 text-white font-bold w-8 h-8 rounded-md transition-colors">-</button>
+                        <button id="reset-font" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-3 h-8 rounded-md mx-1 transition-colors">초기화</button>
+                        <button id="increase-font" class="bg-slate-700 hover:bg-slate-600 text-white font-bold w-8 h-8 rounded-md transition-colors">+</button>
+                    </div>
+                </div>
+            </div>
+            <div id="completed-text" class="w-full flex-grow bg-slate-900 rounded-md p-3 text-lg overflow-y-auto"></div>
+        </div>
+    </main>
+
+    <footer class="bg-slate-800 p-3 rounded-lg text-sm text-center text-slate-400 shadow-lg">
+        <span class="font-bold text-white mx-2">INSERT</span>: 주도권 넘기기 | 
+        <span class="font-bold text-white mx-2">F3</span>: 상용구 변환 | 
+        <span class="font-bold text-white mx-2">(한 줄에) 키:값 + F10</span>: 상용구 등록 | 
+        <span class="font-bold text-white mx-2">F4</span>: 내 마지막 단어 삭제 | 
+        <span class="font-bold text-white mx-2">F8</span>: 상대 첫 단어 삭제
+    </footer>
+
+    <div id="error-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 p-8 rounded-lg shadow-2xl max-w-md w-full text-center border border-red-500">
+            <h2 class="text-2xl font-bold text-red-500 mb-4">오류 발생!</h2>
+            <p id="error-message" class="text-slate-300 mb-6 text-left"></p>
+            <button id="error-modal-close" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">확인</button>
+        </div>
+    </div>
+
+    <div id="autotext-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 p-6 rounded-lg shadow-2xl max-w-lg w-full border border-sky-500">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-sky-400">상용구 관리</h2>
+                <button id="autotext-modal-close" class="text-2xl font-bold">&times;</button>
+            </div>
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <input type="text" id="autotext-key" placeholder="단축어 (예: 마)" class="col-span-1 bg-slate-700 text-white px-3 py-2 rounded-md border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <input type="text" id="autotext-value" placeholder="전체 텍스트 (예: 마이크로소프트)" class="col-span-2 bg-slate-700 text-white px-3 py-2 rounded-md border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
+            <button id="add-autotext-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-md mb-4">추가</button>
+            
+            <h3 class="text-lg font-bold mb-2 text-slate-300">등록된 목록</h3>
+            <div id="autotext-list" class="bg-slate-900 rounded-md p-3 h-48 overflow-y-auto">
+                </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, runTransaction, serverTimestamp, deleteField, collection, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyARtsxNfGRdRJl504zzasRMSubwchaJE5Y", authDomain: "network-force-f765c.firebaseapp.com", projectId: "network-force-f765c", storageBucket: "network-force-f765c.firebasestorage.app", messagingSenderId: "174902107501", appId: "1:174902107501:web:57c565d6500ff5dfa94e64" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-collab-typer-v6';
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        const errorModal = document.getElementById('error-modal');
+        const errorMessageElem = document.getElementById('error-message');
+        const errorModalClose = document.getElementById('error-modal-close');
+        const exitButton = document.getElementById('exitButton');
+        const roomTitleElem = document.getElementById('roomTitle');
+        const userInfoElem = document.getElementById('userInfo');
+        const completedTextElem = document.getElementById('completed-text');
+        const p1 = { nickname: document.getElementById('player1-nickname'), textarea: document.getElementById('player1-textarea') };
+        const p2 = { nickname: document.getElementById('player2-nickname'), textarea: document.getElementById('player2-textarea'), waiting: document.getElementById('player2-waiting') };
+        let currentUser = null, currentRoomId = null, myNickname = '', myRole = null, roomUnsubscribe = null, heartbeatInterval = null, cleanupTimeout = null, debounceTimeout = null, currentRoomData = {};
+        let peerConnection = null, dataChannel = null, signalingUnsubscribe = null;
+        const stunServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        
+        let isComposing = false;
+        
+        let autotextMap = {};
+        const autotextModal = document.getElementById('autotext-modal');
+        const openAutotextModalBtn = document.getElementById('openAutotextModal');
+        const autotextModalCloseBtn = document.getElementById('autotext-modal-close');
+        const addAutotextBtn = document.getElementById('add-autotext-btn');
+        const autotextKeyInput = document.getElementById('autotext-key');
+        const autotextValueInput = document.getElementById('autotext-value');
+        const autotextListDiv = document.getElementById('autotext-list');
+        
+        const contentControls = document.getElementById('content-controls');
+        const btnCopyContent = document.getElementById('btn-copy-content');
+        const btnResetContent = document.getElementById('btn-reset-content');
+
+        function showError(message) { errorMessageElem.textContent = message; errorModal.classList.remove('hidden'); }
+        errorModalClose.addEventListener('click', () => errorModal.classList.add('hidden'));
+        exitButton.addEventListener('click', leaveRoom);
+        onAuthStateChanged(auth, user => { if (user) { currentUser = user; initializeRoom(); } else { signInAnonymously(auth).catch(err => showError(`익명 로그인 실패: ${err.message}`)); } });
+        
+        function initializeRoom() {
+            const params = new URLSearchParams(window.location.search);
+            currentRoomId = params.get('id');
+            myNickname = params.get('nickname');
+            myRole = params.get('role');
+            if (!currentRoomId || !myNickname || !myRole) { showError('잘못된 접근입니다. 방 정보가 없습니다. 로비로 돌아가 다시 시도해주세요.'); return; }
+            if (myRole === 'observer') {
+                document.querySelector('footer').classList.add('hidden');
+                const typistsArea = document.getElementById('typists-area');
+                const completedArea = document.getElementById('completed-area');
+                if(typistsArea && completedArea) {
+                    typistsArea.classList.add('hidden');
+                    completedArea.classList.remove('w-1/2');
+                    completedArea.classList.add('w-full');
+                }
+                document.getElementById('font-controls').classList.remove('hidden');
+                const presenterBtn = document.getElementById('openPresenterMode');
+                presenterBtn.classList.remove('hidden');
+                presenterBtn.addEventListener('click', openPresenterWindow);
+            } else if (myRole === 'typist') {
+                contentControls.classList.remove('hidden');
+                openAutotextModalBtn.classList.remove('hidden');
+            }
+            setupRealtimeListener();
+            startHeartbeat();
+            loadAutotext();
+        }
+        
+        function setupRealtimeListener() {
+            if (roomUnsubscribe) roomUnsubscribe();
+            if (!currentRoomId) return;
+            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
+            roomUnsubscribe = onSnapshot(roomRef, (doc) => {
+                if (doc.exists()) {
+                    currentRoomData = doc.data();
+                    checkAndFixTurn(currentRoomData);
+                    updateUI(currentRoomData);
+                    cleanupInactiveUsers(roomRef, currentRoomData.users || {});
+                } else {
+                    if (roomUnsubscribe) roomUnsubscribe();
+                    if (heartbeatInterval) clearInterval(heartbeatInterval);
+                    showError('방이 존재하지 않거나 삭제되었습니다. 로비로 이동합니다.');
+                    setTimeout(() => window.location.href = 'index.html', 3000);
+                }
+            }, (error) => {
+                showError(`데이터 동기화 오류: ${error.message}`);
+            });
+        }
+        
+        function startHeartbeat() { if (heartbeatInterval) clearInterval(heartbeatInterval); heartbeatInterval = setInterval(() => { if (currentUser && currentRoomId) { const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); updateDoc(roomRef, { [`users.${currentUser.uid}.lastSeen`]: serverTimestamp() }).catch(err => { if (heartbeatInterval) clearInterval(heartbeatInterval); }); } }, 15000); }
+        async function cleanupInactiveUsers(roomRef, users) { if(cleanupTimeout) clearTimeout(cleanupTimeout); cleanupTimeout = setTimeout(async () => { const now = Date.now(); const staleUserIds = []; for (const uid in users) { if (uid === currentUser.uid) continue; const user = users[uid]; if (!user.lastSeen) continue; const lastSeenMillis = user.lastSeen.toMillis(); if (now - lastSeenMillis > 35000) { staleUserIds.push(uid); } } if (staleUserIds.length > 0) { try { await runTransaction(db, async (transaction) => { const roomDoc = await transaction.get(roomRef); if (!roomDoc.exists()) return; const currentData = roomDoc.data(); const currentUsers = { ...currentData.users }; let hasChanged = false; staleUserIds.forEach(uid => { if (currentUsers[uid]) { delete currentUsers[uid]; hasChanged = true; } }); if (hasChanged) { const remainingUserIds = Object.keys(currentUsers); if (remainingUserIds.length === 0) { transaction.delete(roomRef); } else { let newActiveUserId = currentData.activeUserId; if (staleUserIds.includes(newActiveUserId)) { newActiveUserId = remainingUserIds.find(id => currentUsers[id].role === 'typist') || null; } transaction.update(roomRef, { users: currentUsers, activeUserId: newActiveUserId }); } } }); } catch (error) { console.error("유저 정리 중 오류 발생: ", error); } } }, 2000); }
+        async function setupWebRTC(allTypists) { if (peerConnection || allTypists.length < 2 || myRole !== 'typist') return; const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); const signalsRef = collection(roomRef, 'webrtc_signals'); peerConnection = new RTCPeerConnection(stunServers); const opponent = allTypists.find(([id, _]) => id !== currentUser.uid); if (!opponent) return; const opponentId = opponent[0]; peerConnection.onicecandidate = event => { if (event.candidate) { addDoc(signalsRef, { sender: currentUser.uid, receiver: opponentId, candidate: event.candidate.toJSON() }); } }; signalingUnsubscribe = onSnapshot(query(signalsRef, where("receiver", "==", currentUser.uid)), (snapshot) => { snapshot.docChanges().forEach(async (change) => { if (change.type === "added") { const data = change.doc.data(); if (data.offer) { await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer)); const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer); addDoc(signalsRef, { sender: currentUser.uid, receiver: opponentId, answer: answer.toJSON() }); } else if (data.answer) { await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer)); } else if (data.candidate) { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } } }); }); peerConnection.ondatachannel = (event) => { dataChannel = event.channel; setupDataChannelEvents(); }; const myJoinTime = allTypists.find(([id, _]) => id === currentUser.uid)[1].joinedAt.seconds; const opponentJoinTime = opponent[1].joinedAt.seconds; if (myJoinTime < opponentJoinTime) { dataChannel = peerConnection.createDataChannel('typing'); setupDataChannelEvents(); const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer); addDoc(signalsRef, { sender: currentUser.uid, receiver: opponentId, offer: offer.toJSON() }); } }
+        function setupDataChannelEvents() { dataChannel.onmessage = (event) => { const opponentTextarea = (p1.textarea.disabled) ? p1.textarea : p2.textarea; opponentTextarea.value = event.data; }; dataChannel.onopen = () => console.log("WebRTC Data channel is open!"); dataChannel.onclose = () => console.log("WebRTC Data channel is closed."); }
+        
+        function updateUI(roomData) {
+            if (!roomTitleElem.textContent.includes("상용구 등록 완료!")) {
+                 roomTitleElem.textContent = roomData.roomName;
+            }
+            const users = roomData.users || {};
+            const observers = Object.values(users).filter(u => u && u.role === 'observer');
+            const userCount = Object.keys(users).length;
+            let p1Data = null;
+            let p2Data = null;
+            const allTypists = Object.entries(users).filter(([_, u]) => u && u.role === 'typist');
+            if (allTypists.length === 2 && !peerConnection) { setupWebRTC(allTypists); }
+            if (myRole === 'typist') { allTypists.forEach(([id, data]) => { if (id === currentUser.uid) { p1Data = { id, ...data }; } else { p2Data = { id, ...data }; } }); } else { const sortedTypists = allTypists.sort(([,a],[,b]) => a.joinedAt?.seconds - b.joinedAt?.seconds); if (sortedTypists.length > 0) { p1Data = { id: sortedTypists[0][0], ...sortedTypists[0][1] }; } if (sortedTypists.length > 1) { p2Data = { id: sortedTypists[1][0], ...sortedTypists[1][1] }; } }
+            const typists = [p1Data, p2Data].filter(Boolean);
+            const myTurnStatus = roomData.activeUserId === currentUser.uid ? ' (내 차례)' : ' (대기중)';
+            const myRoleText = myRole === 'typist' ? `입력자${myTurnStatus}` : '관전자';
+            userInfoElem.innerHTML = `<span>내 닉네임: <span class="font-semibold text-white">${myNickname}</span></span><span>내 역할: <span class="font-semibold text-yellow-300">${myRoleText}</span></span><span>입력자: <span class="font-semibold text-white">${typists.length}명</span> / 관전자: <span class="font-semibold text-white">${observers.length}명</span></span><span>총: <span class="font-semibold text-white">${userCount}명</span></span>`;
+            p1.nickname.textContent = p1Data ? p1Data.nickname : '입력자 1';
+            const p1Buffer = p1Data && users[p1Data.id] ? users[p1Data.id].bufferedText || '' : '';
+            if (document.activeElement !== p1.textarea || p1.textarea.value !== p1Buffer) { p1.textarea.value = p1Buffer; }
+            if (p2Data) { p2.textarea.classList.remove('hidden'); p2.waiting.classList.add('hidden'); p2.nickname.textContent = p2Data.nickname; const p2Buffer = p2Data && users[p2Data.id] ? users[p2Data.id].bufferedText || '' : ''; if (document.activeElement !== p2.textarea || p2.textarea.value !== p2Buffer) { p2.textarea.value = p2Buffer; } } else { p2.textarea.classList.add('hidden'); p2.waiting.classList.remove('hidden'); p2.nickname.textContent = '입력자 2'; }
+            p1.textarea.disabled = !p1Data || p1Data.id !== currentUser.uid;
+            p2.textarea.disabled = !p2Data || p2Data.id !== currentUser.uid;
+            p1.textarea.classList.toggle('turn-active', p1Data && roomData.activeUserId === p1Data.id);
+            p1.textarea.classList.toggle('turn-inactive', p1Data && roomData.activeUserId !== p1Data.id);
+            p2.textarea.classList.toggle('turn-active', p2Data && roomData.activeUserId === p2Data.id);
+            p2.textarea.classList.toggle('turn-inactive', p2Data && roomData.activeUserId !== p2Data.id);
+
+            const finalText = roomData.finalText || [];
+            const activeBuffer = roomData.activeUserId && users[roomData.activeUserId] ? (users[roomData.activeUserId].bufferedText || '') : '';
+            
+            const processedBuffer = activeBuffer;
+
+            completedTextElem.innerHTML = [...finalText, processedBuffer].join(' ').trim().replace(/\n/g, '<br>');
+            completedTextElem.scrollTop = completedTextElem.scrollHeight;
+        }
+
+        async function checkAndFixTurn(roomData) { const { activeUserId, users } = roomData; const userMap = users || {}; const typistEntries = Object.entries(userMap).filter(([, u]) => u.role === 'typist'); if ((!activeUserId || !userMap[activeUserId]) && typistEntries.length > 0) { const designatedFixerId = typistEntries.sort((a, b) => a[0].localeCompare(b[0]))[0][0]; if (currentUser.uid === designatedFixerId) { console.warn("주도권 오류 감지! 자동 복구를 시도합니다."); const newActiveUserId = designatedFixerId; const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); await updateDoc(roomRef, { activeUserId: newActiveUserId }); } } }
+        async function leaveRoom() { if (dataChannel) dataChannel.close(); if (peerConnection) peerConnection.close(); if (signalingUnsubscribe) signalingUnsubscribe(); if (heartbeatInterval) clearInterval(heartbeatInterval); if (roomUnsubscribe) roomUnsubscribe(); const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); try { await runTransaction(db, async (transaction) => { const roomDoc = await transaction.get(roomRef); if (!roomDoc.exists()) return; const data = roomDoc.data(); const newUsers = { ...data.users }; let newActiveUserId = data.activeUserId; delete newUsers[currentUser.uid]; const remainingUserIds = Object.keys(newUsers); const remainingTypists = remainingUserIds.filter(id => newUsers[id].role === 'typist'); if (data.activeUserId === currentUser.uid) { newActiveUserId = remainingTypists.length > 0 ? remainingTypists[0] : null; } if (remainingUserIds.length === 0) { transaction.delete(roomRef); } else { transaction.update(roomRef, { users: newUsers, activeUserId: newActiveUserId }); } }); } catch (error) { console.error("방 나가기 처리 중 오류 발생: ", error); await updateDoc(roomRef, { [`users.${currentUser.uid}`]: deleteField() }).catch(console.error); } finally { window.location.href = 'index.html'; } }
+        
+        function handleTextareaInput(e) {
+            if (isComposing) return;
+
+            const textarea = e.target;
+            if (textarea.disabled) return;
+
+            const originalValue = textarea.value;
+            let cursorPos = textarea.selectionStart;
+
+            const textBeforeCursor = originalValue.substring(0, cursorPos);
+            const lastSeparatorIndex = Math.max(textBeforeCursor.lastIndexOf(' '), textBeforeCursor.lastIndexOf('\n'));
+            const wordToCheck = textBeforeCursor.substring(lastSeparatorIndex + 1);
+
+            if (wordToCheck && wordToCheck.includes('~')) {
+                const tildeJosaList = ['~으로', '~로', '~은', '~는', '~이', '~가', '~을', '~를', '~과', '~와'];
+                for (const tildeJosa of tildeJosaList) {
+                    if (wordToCheck.endsWith(tildeJosa)) {
+                        const baseWord = wordToCheck.substring(0, wordToCheck.length - tildeJosa.length);
+                        const josa = tildeJosa.slice(1);
+
+                        if (baseWord) {
+                            const correctedJosa = getCorrectJosa(baseWord, josa);
+                            const textToInsert = baseWord + correctedJosa;
+                            
+                            const textAfterCursor = originalValue.substring(cursorPos);
+                            const textBeforeWord = originalValue.substring(0, lastSeparatorIndex + 1);
+                            
+                            textarea.value = textBeforeWord + textToInsert + textAfterCursor;
+                            
+                            const newCursorPos = textBeforeWord.length + textToInsert.length;
+                            textarea.setSelectionRange(newCursorPos, newCursorPos); 
+
+                            sendBufferUpdate(textarea.value);
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            const newValue = originalValue.replace(/ {2,}/g, ' ');
+            if (originalValue !== newValue) {
+                const lengthDifference = originalValue.length - newValue.length;
+                textarea.value = newValue;
+                textarea.setSelectionRange(cursorPos - lengthDifference, cursorPos - lengthDifference);
+            }
+
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                sendBufferUpdate(textarea.value);
+            }, 20);
+        }
+
+        async function sendBufferUpdate(text) { if (dataChannel && dataChannel.readyState === 'open') { dataChannel.send(text); } const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); await updateDoc(roomRef, { [`users.${currentUser.uid}.bufferedText`]: text }); }
+        
+        [p1.textarea, p2.textarea].forEach(ta => {
+            ta.addEventListener('input', handleTextareaInput);
+            ta.addEventListener('compositionstart', () => { isComposing = true; });
+            ta.addEventListener('compositionend', (e) => { 
+                isComposing = false;
+                handleTextareaInput(e); 
+            });
+        });
+
+        function getCorrectJosa(word, josa) {
+            if (!word) return josa;
+            const hasBatchim = (char) => {
+                const code = char.charCodeAt(0);
+                if (code < 0xAC00 || code > 0xD7A3) return false;
+                return (code - 0xAC00) % 28 > 0;
+            };
+            const lastChar = word.slice(-1);
+            if (josa === '으로' || josa === '로') {
+                const lastCharCode = lastChar.charCodeAt(0);
+                const isRieulBatchim = (lastCharCode >= 0xAC00 && lastCharCode <= 0xD7A3) && ((lastCharCode - 0xAC00) % 28 === 8);
+                return (hasBatchim(lastChar) && !isRieulBatchim) ? '으로' : '로';
+            }
+            const josaPairs = { '은': '는', '는': '은', '이': '가', '가': '이', '을': '를', '를': '을', '과': '와', '와': '과' };
+            if (!josaPairs[josa]) return josa;
+            const needsBatchimJosa = ['은', '이', '을', '과'].includes(josa);
+            const wordHasBatchim = hasBatchim(lastChar);
+            if (needsBatchimJosa) {
+                return wordHasBatchim ? josa : josaPairs[josa];
+            } else {
+                return wordHasBatchim ? josaPairs[josa] : josa;
+            }
+        }
+
+        window.addEventListener('keydown', async (e) => {
+            if (isComposing) return;
+
+            const myTextarea = document.querySelector('textarea:not(:disabled)');
+            if (myRole !== 'typist' || !myTextarea) return;
+
+            if (e.key === 'F3') {
+                e.preventDefault();
+
+                const text = myTextarea.value;
+                const cursorPos = myTextarea.selectionStart;
+                const textBeforeCursor = text.substring(0, cursorPos);
+                const lastSeparatorIndex = Math.max(textBeforeCursor.lastIndexOf(' '), textBeforeCursor.lastIndexOf('\n'));
+                const key = textBeforeCursor.substring(lastSeparatorIndex + 1);
+
+                const expansion = autotextMap[key];
+
+                if (expansion) {
+                    const newText = text.substring(0, lastSeparatorIndex + 1) + expansion + text.substring(cursorPos);
+                    myTextarea.value = newText;
+                    
+                    const newCursorPos = lastSeparatorIndex + 1 + expansion.length;
+                    myTextarea.setSelectionRange(newCursorPos, newCursorPos);
+
+                    sendBufferUpdate(myTextarea.value);
+                }
+            }
+            
+            if (e.key === 'F10') {
+                e.preventDefault();
+
+                const text = myTextarea.value;
+                const cursorPos = myTextarea.selectionStart;
+
+                const lineStartIndex = text.lastIndexOf('\n', cursorPos - 1) + 1;
+                let lineEndIndex = text.indexOf('\n', lineStartIndex);
+                if (lineEndIndex === -1) {
+                    lineEndIndex = text.length;
+                }
+
+                const line = text.substring(lineStartIndex, lineEndIndex);
+
+                const colonIndex = line.indexOf(':');
+                if (colonIndex > 0) {
+                    const rawKeyPart = line.substring(0, colonIndex).trim();
+                    const lastSpaceIndex = rawKeyPart.lastIndexOf(' ');
+                    const key = lastSpaceIndex === -1 ? rawKeyPart : rawKeyPart.substring(lastSpaceIndex + 1);
+                    const value = line.substring(colonIndex + 1).trimStart();
+                    
+                    if (key && value) {
+                        autotextMap[key] = value;
+                        saveAutotext();
+                        renderAutotextList();
+
+                        // ▼▼▼ F10 수정: 등록에 사용되지 않은 앞부분 텍스트는 남겨둠 ▼▼▼
+                        const textBeforeLine = text.substring(0, lineStartIndex);
+                        const textAfterLine = text.substring(lineEndIndex + 1);
+                        const partToKeep = lastSpaceIndex === -1 ? '' : rawKeyPart.substring(0, lastSpaceIndex + 1);
+                        
+                        const newText = textBeforeLine + partToKeep + textAfterLine;
+                        
+                        myTextarea.value = newText;
+                        const newCursorPos = lineStartIndex + partToKeep.length;
+                        myTextarea.setSelectionRange(newCursorPos, newCursorPos);
+                        // ▲▲▲ 수정 완료 ▲▲▲
+                        
+                        sendBufferUpdate(myTextarea.value);
+
+                        const originalTitle = currentRoomData.roomName || roomTitleElem.textContent;
+                        roomTitleElem.textContent = `'${key}' 상용구 등록 완료!`;
+                        setTimeout(() => {
+                            if (roomTitleElem.textContent === `'${key}' 상용구 등록 완료!`){
+                                roomTitleElem.textContent = originalTitle;
+                            }
+                        }, 2000);
+                    }
+                }
+            }
+
+            if (e.key === 'Insert') { e.preventDefault(); await passTurn(); }
+            if (e.key === 'F4') { e.preventDefault(); if (debounceTimeout) clearTimeout(debounceTimeout); const trimmedText = myTextarea.value.trimEnd(); const lastSeparatorIndex = Math.max(trimmedText.lastIndexOf(' '), trimmedText.lastIndexOf('\n')); let newText = ""; if (lastSeparatorIndex !== -1) { newText = trimmedText.substring(0, lastSeparatorIndex); } myTextarea.value = newText; sendBufferUpdate(newText); }
+            if (e.key === 'F8') { e.preventDefault(); if (currentRoomData.activeUserId !== currentUser.uid) return; const opponent = Object.entries(currentRoomData.users || {}).find(([id, user]) => user && user.role === 'typist' && id !== currentUser.uid); if (!opponent) return; const [opponentId, opponentData] = opponent; const opponentBuffer = opponentData.bufferedText || ''; const trimmedText = opponentBuffer.trimStart(); const firstSpace = trimmedText.indexOf(' '); const firstNewline = trimmedText.indexOf('\n'); let newText = ""; if (firstSpace !== -1 || firstNewline !== -1) { let firstSeparatorIndex; if (firstSpace === -1) firstSeparatorIndex = firstNewline; else if (firstNewline === -1) firstSeparatorIndex = firstSpace; else firstSeparatorIndex = Math.min(firstSpace, firstNewline); newText = trimmedText.substring(firstSeparatorIndex + 1).trimStart(); } const opponentTextarea = (p1.textarea.disabled) ? p1.textarea : p2.textarea; opponentTextarea.value = newText; if (dataChannel && dataChannel.readyState === 'open') { dataChannel.send(newText); } const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); await updateDoc(roomRef, { [`users.${opponentId}.bufferedText`]: newText }); }
+        });
+
+        async function passTurn() {
+            await runTransaction(db, async (transaction) => {
+                const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
+                const roomDoc = await transaction.get(roomRef);
+                if (!roomDoc.exists()) return;
+                const data = roomDoc.data();
+                if (data.activeUserId !== currentUser.uid) return;
+                const users = data.users;
+                const opponent = Object.entries(users).find(([id, user]) => user && user.role === 'typist' && id !== currentUser.uid);
+                if (!opponent) return;
+                const [opponentId] = opponent;
+                const myBuffer = users[currentUser.uid]?.bufferedText?.trim() || '';
+                const newFinalText = [...data.finalText, myBuffer].filter(Boolean);
+                transaction.update(roomRef, {
+                    finalText: newFinalText,
+                    [`users.${currentUser.uid}.bufferedText`]: '',
+                    activeUserId: opponentId,
+                });
+            });
+        }
+        
+        const decreaseFontBtn = document.getElementById('decrease-font');
+        const resetFontBtn = document.getElementById('reset-font');
+        const increaseFontBtn = document.getElementById('increase-font');
+        const completedTextForSizing = document.getElementById('completed-text');
+        const initialFontSize = 1.125;
+        const step = 0.125;
+        let currentFontSize = initialFontSize;
+        function applyFontSize() { completedTextForSizing.style.fontSize = `${currentFontSize}rem`; }
+        decreaseFontBtn.addEventListener('click', () => { if (currentFontSize > 0.75) { currentFontSize -= step; applyFontSize(); } });
+        increaseFontBtn.addEventListener('click', () => { if (currentFontSize < 2.5) { currentFontSize += step; applyFontSize(); } });
+        resetFontBtn.addEventListener('click', () => { currentFontSize = initialFontSize; applyFontSize(); });
+        function openPresenterWindow() {
+            const url = `presenter_view.html?id=${currentRoomId}`;
+            const windowName = "presenterWindow";
+            const width = 1280;
+            const height = 720;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            const features = `popup=yes,width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,menubar=no,status=no,scrollbars=no,resizable=yes`;
+            window.open(url, windowName, features.replace(/\s/g, ''));
+        }
+
+        btnCopyContent.addEventListener('click', async () => {
+            if (!currentRoomData) return;
+            const users = currentRoomData.users || {};
+            const finalText = currentRoomData.finalText || [];
+            const activeBuffer = currentRoomData.activeUserId && users[currentRoomData.activeUserId] 
+                ? (users[currentRoomData.activeUserId].bufferedText || '') 
+                : '';
+            const fullText = [...finalText, activeBuffer].join(' ').trim();
+            if (!fullText) return;
+            try {
+                await navigator.clipboard.writeText(fullText);
+                const originalText = btnCopyContent.textContent;
+                btnCopyContent.textContent = '복사 완료!';
+                setTimeout(() => {
+                    btnCopyContent.textContent = originalText;
+                }, 1500);
+            } catch (err) {
+                console.error('클립보드 복사 실패:', err);
+                showError('클립보드 복사에 실패했습니다. 브라우저 설정을 확인해주세요.');
+            }
+        });
+
+        btnResetContent.addEventListener('click', async () => {
+            const confirmation = confirm("정말로 '완성된 문장'의 모든 내용을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.");
+            if (confirmation) {
+                const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const roomDoc = await transaction.get(roomRef);
+                        if (!roomDoc.exists()) return;
+                        const roomData = roomDoc.data();
+                        const activeUserId = roomData.activeUserId;
+                        const updates = { finalText: [] };
+                        if (activeUserId && roomData.users[activeUserId]) {
+                            updates[`users.${activeUserId}.bufferedText`] = '';
+                        }
+                        transaction.update(roomRef, updates);
+                    });
+                } catch (err) {
+                    console.error('내용 초기화 실패:', err);
+                    showError('내용 초기화에 실패했습니다.');
+                }
+            }
+        });
+
+        function saveAutotext() {
+            localStorage.setItem('collab_autotext', JSON.stringify(autotextMap));
+        }
+
+        function loadAutotext() {
+            const saved = localStorage.getItem('collab_autotext');
+            if (saved) {
+                autotextMap = JSON.parse(saved);
+            }
+            renderAutotextList();
+        }
+
+        function renderAutotextList() {
+            autotextListDiv.innerHTML = '';
+            if (Object.keys(autotextMap).length === 0) {
+                autotextListDiv.innerHTML = '<p class="text-slate-500 text-center">등록된 상용구가 없습니다.</p>';
+                return;
+            }
+            for (const key in autotextMap) {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center p-2 rounded hover:bg-slate-700';
+                item.innerHTML = `
+                    <div>
+                        <span class="font-bold text-sky-400">${key}</span>
+                        <span class="text-slate-400 mx-2">→</span>
+                        <span>${autotextMap[key]}</span>
+                    </div>
+                    <button data-key="${key}" class="delete-autotext-btn bg-red-800 text-white text-xs font-bold py-1 px-2 rounded">삭제</button>
+                `;
+                autotextListDiv.appendChild(item);
+            }
+        }
+
+        openAutotextModalBtn.addEventListener('click', () => autotextModal.classList.remove('hidden'));
+        autotextModalCloseBtn.addEventListener('click', () => autotextModal.classList.add('hidden'));
+
+        addAutotextBtn.addEventListener('click', () => {
+            const key = autotextKeyInput.value.trim();
+            const value = autotextValueInput.value.trim();
+
+            if (key.includes(' ')) {
+                alert("상용구 단축어(입력)에는 띄어쓰기를 포함할 수 없습니다.");
+                return;
+            }
+
+            if (key && value) {
+                autotextMap[key] = value;
+                saveAutotext();
+                renderAutotextList();
+                autotextKeyInput.value = '';
+                autotextValueInput.value = '';
+                autotextKeyInput.focus();
+            }
+        });
+
+        autotextListDiv.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-autotext-btn')) {
+                const key = e.target.getAttribute('data-key');
+                if (confirm(`'${key}' 상용구를 삭제하시겠습니까?`)) {
+                    delete autotextMap[key];
+                    saveAutotext();
+                    renderAutotextList();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프레젠테이션 뷰</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+        }
+        #presentation-text {
+            font-family: 'Noto Sans KR', sans-serif;
+            color: #e2e8f0;
+            width: 100%;
+            height: 100%;
+            padding: 2rem;
+            box-sizing: border-box;
+            font-size: 2.25rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            transition: font-size 0.2s, padding-bottom 0.2s;
+        }
+        #presentation-text::-webkit-scrollbar {
+            display: none;
+        }
+        #menu-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(5px);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 100;
+        }
+        body:hover #menu-bar {
+            transform: translateY(0);
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-group label {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 14px;
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+        .control-group button {
+            background-color: #334155;
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .control-group button:hover {
+            background-color: #475569;
+        }
+        .control-group .reset-btn {
+            width: auto;
+            border-radius: 16px;
+            padding: 0 12px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div id="presentation-text">불러오는 중...</div>
+
+    <div id="menu-bar">
+        <div class="control-group">
+            <label>텍스트 크기</label>
+            <button id="btn-font-decrease">-</button>
+            <button id="btn-font-reset" class="reset-btn">초기화</button>
+            <button id="btn-font-increase">+</button>
+        </div>
+        <div class="control-group">
+            <label>하단 여백</label>
+            <button id="btn-padding-decrease">-</button>
+            <button id="btn-padding-reset" class="reset-btn">초기화</button>
+            <button id="btn-padding-increase">+</button>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyARtsxNfGRdRJl504zzasRMSubwchaJE5Y", authDomain: "network-force-f765c.firebaseapp.com", projectId: "network-force-f765c", storageBucket: "network-force-f765c.firebasestorage.app", messagingSenderId: "174902107501", appId: "1:174902107501:web:57c565d6500ff5dfa94e64" };
+        const appId = 'default-collab-typer-v6';
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const presentationTextElem = document.getElementById('presentation-text');
+        let roomUnsubscribe = null;
+
+        const btnFontDecrease = document.getElementById('btn-font-decrease');
+        const btnFontIncrease = document.getElementById('btn-font-increase');
+        const btnFontReset = document.getElementById('btn-font-reset');
+        const btnPaddingDecrease = document.getElementById('btn-padding-decrease');
+        const btnPaddingIncrease = document.getElementById('btn-padding-increase');
+        const btnPaddingReset = document.getElementById('btn-padding-reset');
+
+        const FONT_STEP = 0.1;
+        // ▼▼▼ PADDING_STEP 값을 2로 수정 ▼▼▼
+        const PADDING_STEP = 2; 
+        const INITIAL_FONT_SIZE = 2.25;
+        const INITIAL_PADDING_BOTTOM = 2;
+
+        let currentFontSize = parseFloat(localStorage.getItem('presenter_fontSize')) || INITIAL_FONT_SIZE;
+        let currentPaddingBottom = parseFloat(localStorage.getItem('presenter_paddingBottom')) || INITIAL_PADDING_BOTTOM;
+
+        function applyStyles() {
+            presentationTextElem.style.fontSize = `${currentFontSize}rem`;
+            presentationTextElem.style.paddingBottom = `${currentPaddingBottom}rem`;
+            localStorage.setItem('presenter_fontSize', currentFontSize);
+            localStorage.setItem('presenter_paddingBottom', currentPaddingBottom);
+            // ▼▼▼ 자동 스크롤 로직을 이 함수에 추가 ▼▼▼
+            presentationTextElem.scrollTop = presentationTextElem.scrollHeight;
+        }
+
+        btnFontIncrease.addEventListener('click', () => {
+            if (currentFontSize < 5) currentFontSize += FONT_STEP;
+            applyStyles();
+        });
+        btnFontDecrease.addEventListener('click', () => {
+            if (currentFontSize > 1) currentFontSize -= FONT_STEP;
+            applyStyles();
+        });
+        btnFontReset.addEventListener('click', () => {
+            currentFontSize = INITIAL_FONT_SIZE;
+            applyStyles();
+        });
+
+        btnPaddingIncrease.addEventListener('click', () => {
+            // ▼▼▼ 최대 제한(if) 조건 제거 ▼▼▼
+            currentPaddingBottom += PADDING_STEP;
+            applyStyles();
+        });
+        btnPaddingDecrease.addEventListener('click', () => {
+            if (currentPaddingBottom > 0) currentPaddingBottom -= PADDING_STEP;
+            applyStyles();
+        });
+        btnPaddingReset.addEventListener('click', () => {
+            currentPaddingBottom = INITIAL_PADDING_BOTTOM;
+            applyStyles();
+        });
+        
+        applyStyles();
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                initializeFirestoreListener();
+            } else {
+                signInAnonymously(auth).catch(err => {
+                    presentationTextElem.textContent = `인증 오류: ${err.message}`;
+                });
+            }
+        });
+
+        function initializeFirestoreListener() {
+            const params = new URLSearchParams(window.location.search);
+            const roomId = params.get('id');
+
+            if (!roomId) {
+                presentationTextElem.textContent = '오류: 방 정보를 찾을 수 없습니다.';
+                return;
+            }
+
+            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, roomId);
+            roomUnsubscribe = onSnapshot(roomRef, (doc) => {
+                if (doc.exists()) {
+                    const roomData = doc.data();
+                    const users = roomData.users || {};
+                    const finalText = roomData.finalText || [];
+                    const activeBuffer = roomData.activeUserId && users[roomData.activeUserId] 
+                        ? (users[roomData.activeUserId].bufferedText || '') 
+                        : '';
+                    
+                    const fullText = [...finalText, activeBuffer].join(' ').trim();
+                    presentationTextElem.innerHTML = fullText.replace(/\n/g, '<br>');
+                    
+                    presentationTextElem.scrollTop = presentationTextElem.scrollHeight;
+                } else {
+                    presentationTextElem.textContent = '방이 삭제되었거나 존재하지 않습니다.';
+                    if (roomUnsubscribe) roomUnsubscribe();
+                }
+            }, (error) => {
+                presentationTextElem.textContent = `데이터 동기화 오류: ${error.message}`;
+            });
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (roomUnsubscribe) roomUnsubscribe();
+        });
+
+    </script>
+</body>
+</html>
