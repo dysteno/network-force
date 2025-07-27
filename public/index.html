@@ -1,89 +1,299 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
-
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/12.0.0/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/12.0.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/12.0.0/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
-
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
-    </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
-
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>협업 타이핑 - 로비</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background-color: #111827;
         }
-      });
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 10px;
+            border: 2px solid #1f2937;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        .room-card .delete-btn {
+            opacity: 1; 
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex flex-col items-center justify-center p-4">
+
+    <div id="lobby-ui" class="w-full max-w-4xl mx-auto h-full flex flex-col gap-4">
+        <header class="flex-shrink-0 p-4 bg-gray-800/50 rounded-lg shadow-lg flex justify-between items-center border border-gray-700">
+            <h1 class="text-2xl font-bold text-white">방 목록</h1>
+            <button id="show-create-room-modal-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">새 방 만들기</button>
+        </header>
+        <main id="room-list-container" class="flex-1 overflow-y-auto custom-scroll p-1">
+            <div id="room-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                </div>
+            <p id="no-rooms-message" class="text-center text-gray-500 mt-10 text-lg hidden">현재 생성된 방이 없습니다. 새 방을 만들어보세요!</p>
+        </main>
+    </div>
+
+    <div id="create-room-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md border border-gray-700 p-6 space-y-4">
+            <h2 class="text-2xl font-bold text-white">새 방 만들기</h2>
+            <input type="text" id="create-room-name" placeholder="방 이름" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" id="create-nickname" placeholder="닉네임" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="password" id="create-room-password" placeholder="비밀번호 (선택 사항)" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex justify-end gap-4">
+                <button id="cancel-create-room-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">취소</button>
+                <button id="confirm-create-room-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md">만들기</button>
+            </div>
+            <p id="create-error-message" class="text-red-400 h-5 text-sm"></p>
+        </div>
+    </div>
+
+    <div id="join-room-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md border border-gray-700 p-6 space-y-4">
+            <h2 class="text-2xl font-bold text-white">방 참여</h2>
+            <p>방 이름: <span id="join-room-name-display" class="font-bold"></span></p>
+            <input type="text" id="join-nickname" placeholder="닉네임" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="password" id="join-room-password" placeholder="비밀번호" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex justify-center gap-4 text-white pt-2">
+                <label class="flex items-center cursor-pointer"><input type="radio" name="join-role-select" value="typist" class="form-radio h-5 w-5 text-green-500" checked><span class="ml-2">입력자</span></label>
+                <label class="flex items-center cursor-pointer"><input type="radio" name="join-role-select" value="observer" class="form-radio h-5 w-5 text-yellow-500"><span class="ml-2">관전자</span></label>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-join-room-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">취소</button>
+                <button id="confirm-join-room-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">참여</button>
+            </div>
+            <p id="join-error-message" class="text-red-400 h-5 text-sm"></p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // ▼▼▼ `runTransaction`을 추가로 import 합니다. ▼▼▼
+        import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined'
+            ? JSON.parse(__firebase_config)
+            : {
+                apiKey: "AIzaSyARtsxNfGRdRJl504zzasRMSubwchaJE5Y",
+                authDomain: "network-force-f765c.firebaseapp.com",
+                projectId: "network-force-f765c",
+                storageBucket: "network-force-f765c.firebasestorage.app",
+                messagingSenderId: "174902107501",
+                appId: "1:174902107501:web:57c565d6500ff5dfa94e64"
+            };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-collab-typer-v6';
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let lobbyUnsubscribe = null;
+        let selectedRoomId = null;
+
+        const roomList = document.getElementById('room-list');
+        const noRoomsMessage = document.getElementById('no-rooms-message');
+        const createRoomModal = document.getElementById('create-room-modal');
+        const joinRoomModal = document.getElementById('join-room-modal');
+        const showCreateRoomModalBtn = document.getElementById('show-create-room-modal-btn');
+        const createRoomNameInput = document.getElementById('create-room-name');
+        const createNicknameInput = document.getElementById('create-nickname');
+        const createRoomPasswordInput = document.getElementById('create-room-password');
+        const cancelCreateBtn = document.getElementById('cancel-create-room-btn');
+        const confirmCreateBtn = document.getElementById('confirm-create-room-btn');
+        const createErrorMessage = document.getElementById('create-error-message');
+        const joinRoomNameDisplay = document.getElementById('join-room-name-display');
+        const joinNicknameInput = document.getElementById('join-nickname');
+        const joinRoomPasswordInput = document.getElementById('join-room-password');
+        const cancelJoinBtn = document.getElementById('cancel-join-room-btn');
+        const confirmJoinBtn = document.getElementById('confirm-join-room-btn');
+        const joinErrorMessage = document.getElementById('join-error-message');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                loadLobby();
+            } else {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) { console.error("Authentication Error:", error); }
+            }
+        });
+
+        function loadLobby() {
+            if (lobbyUnsubscribe) lobbyUnsubscribe();
+            const roomsRef = collection(db, `artifacts/${appId}/public/data/typing-rooms`);
+            lobbyUnsubscribe = onSnapshot(roomsRef, (snapshot) => {
+                roomList.innerHTML = '';
+                noRoomsMessage.classList.toggle('hidden', snapshot.docs.length > 0);
+                snapshot.docs.forEach(doc => {
+                    const roomData = doc.data();
+                    const roomEl = document.createElement('div');
+                    roomEl.className = 'room-card bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700 flex justify-between items-center';
+                    
+                    const contentEl = document.createElement('div');
+                    contentEl.className = 'flex-grow cursor-pointer';
+                    contentEl.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-lg font-bold text-white truncate">${roomData.roomName}</h3>
+                            <div class="flex items-center gap-2 text-gray-400">
+                                ${roomData.hasPassword ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>' : ''}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/></svg>
+                                <span>${Object.keys(roomData.users || {}).length}</span>
+                            </div>
+                        </div>
+                    `;
+                    contentEl.addEventListener('click', () => openJoinModal(doc.id, roomData));
+                    roomEl.appendChild(contentEl);
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = '삭제';
+                    deleteBtn.className = 'delete-btn ml-4 bg-red-800 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm';
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (confirm(`'${roomData.roomName}' 방을 정말 삭제하시겠습니까?`)) {
+                            deleteRoom(doc.id);
+                        }
+                    });
+                    roomEl.appendChild(deleteBtn);
+                    
+                    roomList.appendChild(roomEl);
+                });
+            });
+        }
+
+        async function deleteRoom(roomId) {
+            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, roomId);
+            await deleteDoc(roomRef);
+        }
+
+        function openJoinModal(roomId, roomData) {
+            selectedRoomId = roomId;
+            joinRoomNameDisplay.textContent = roomData.roomName;
+            joinRoomPasswordInput.style.display = roomData.hasPassword ? 'block' : 'none';
+            joinErrorMessage.textContent = '';
+            joinNicknameInput.value = '';
+            joinRoomPasswordInput.value = '';
+            joinRoomModal.classList.add('flex');
+            joinRoomModal.classList.remove('hidden');
+        }
+
+        showCreateRoomModalBtn.addEventListener('click', () => {
+            createErrorMessage.textContent = '';
+            createRoomNameInput.value = '';
+            createNicknameInput.value = '';
+            createRoomPasswordInput.value = '';
+            createRoomModal.classList.add('flex');
+            createRoomModal.classList.remove('hidden');
+        });
+
+        cancelCreateBtn.addEventListener('click', () => createRoomModal.classList.add('hidden'));
+        cancelJoinBtn.addEventListener('click', () => joinRoomModal.classList.add('hidden'));
+
+        confirmCreateBtn.addEventListener('click', async () => {
+            const roomName = createRoomNameInput.value.trim();
+            const nickname = createNicknameInput.value.trim();
+            if (!roomName || !nickname) {
+                createErrorMessage.textContent = "방 이름과 닉네임을 모두 입력하세요.";
+                return;
+            }
+            createErrorMessage.textContent = '';
+            const password = createRoomPasswordInput.value;
+            const newRoomId = doc(collection(db, 'dummy')).id;
+            
+            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, newRoomId);
+            const initialUserData = {
+                joinedAt: serverTimestamp(),
+                role: 'typist',
+                nickname: nickname,
+                lastSeen: serverTimestamp() 
+            };
+
+            await setDoc(roomRef, {
+                roomName: roomName,
+                password: password || null,
+                hasPassword: !!password,
+                createdAt: serverTimestamp(),
+                creatorId: currentUser.uid,
+                activeUserId: currentUser.uid,
+                finalText: [],
+                users: { [currentUser.uid]: initialUserData },
+            });
+
+            enterRoom(newRoomId, nickname, 'typist');
+        });
+
+        // ▼▼▼ `confirmJoinBtn` 이벤트 리스너의 로직을 아래 내용으로 교체합니다. ▼▼▼
+        confirmJoinBtn.addEventListener('click', async () => {
+            const nickname = joinNicknameInput.value.trim();
+            if (!nickname) {
+                joinErrorMessage.textContent = "닉네임을 입력하세요.";
+                return;
+            }
+            joinErrorMessage.textContent = '';
+
+            const password = joinRoomPasswordInput.value;
+            const role = document.querySelector('input[name="join-role-select"]:checked').value;
+            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, selectedRoomId);
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const roomSnap = await transaction.get(roomRef);
+                    if (!roomSnap.exists()) {
+                        throw new Error("존재하지 않는 방입니다.");
+                    }
+
+                    const roomData = roomSnap.data();
+                    if (roomData.hasPassword && roomData.password !== password) {
+                        throw new Error("비밀번호가 틀렸습니다.");
+                    }
+
+                    const newUsers = { ...roomData.users };
+                    newUsers[currentUser.uid] = {
+                        joinedAt: serverTimestamp(),
+                        role: role,
+                        nickname: nickname,
+                        lastSeen: serverTimestamp()
+                    };
+
+                    let newActiveUserId = roomData.activeUserId;
+                    const typists = Object.values(newUsers).filter(u => u.role === 'typist');
+
+                    // 만약 참여하는 내가 유일한 입력자라면, 주도권을 획득
+                    if (role === 'typist' && typists.length === 1) {
+                        newActiveUserId = currentUser.uid;
+                    }
+                    
+                    transaction.update(roomRef, { 
+                        users: newUsers,
+                        activeUserId: newActiveUserId
+                    });
+                });
+
+                enterRoom(selectedRoomId, nickname, role);
+
+            } catch (error) {
+                joinErrorMessage.textContent = error.message;
+            }
+        });
+        // ▲▲▲ 여기까지 교체 ▲▲▲
+
+        function enterRoom(roomId, nickname, role) {
+            const url = `room.html?id=${roomId}&nickname=${encodeURIComponent(nickname)}&role=${encodeURIComponent(role)}`;
+            window.location.href = url;
+        }
     </script>
-  </body>
+</body>
 </html>
