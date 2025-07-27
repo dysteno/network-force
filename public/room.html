@@ -78,10 +78,11 @@
     </main>
 
     <footer class="bg-slate-800 p-3 rounded-lg text-sm text-center text-slate-400 shadow-lg">
-        <span class="font-bold text-white mx-2">INSERT</span>: 주도권 넘기기 | 
-        <span class="font-bold text-white mx-2">F3</span>: 상용구 변환 | 
-        <span class="font-bold text-white mx-2">(한 줄에) 키:값 + F10</span>: 상용구 등록 | 
-        <span class="font-bold text-white mx-2">F4</span>: 내 마지막 단어 삭제 | 
+        <span class="font-bold text-white mx-2">INSERT</span>: 주도권 넘기기 |
+        <span class="font-bold text-white mx-2">F1</span>: 단어 확정 |
+        <span class="font-bold text-white mx-2">F3</span>: 상용구 변환 |
+        <span class="font-bold text-white mx-2">(한 줄에) 키:값 + F10</span>: 상용구 등록 |
+        <span class="font-bold text-white mx-2">F4</span>: 내 마지막 단어 삭제 |
         <span class="font-bold text-white mx-2">F8</span>: 상대 첫 단어 삭제
     </footer>
 
@@ -104,7 +105,7 @@
                 <input type="text" id="autotext-value" placeholder="전체 텍스트 (예: 마이크로소프트)" class="col-span-2 bg-slate-700 text-white px-3 py-2 rounded-md border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500">
             </div>
             <button id="add-autotext-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-md mb-4">추가</button>
-            
+
             <h3 class="text-lg font-bold mb-2 text-slate-300">등록된 목록</h3>
             <div id="autotext-list" class="bg-slate-900 rounded-md p-3 h-48 overflow-y-auto">
                 </div>
@@ -131,7 +132,7 @@
         const completedTextElem = document.getElementById('completed-text');
         const p1 = { nickname: document.getElementById('player1-nickname'), textarea: document.getElementById('player1-textarea') };
         const p2 = { nickname: document.getElementById('player2-nickname'), textarea: document.getElementById('player2-textarea'), waiting: document.getElementById('player2-waiting') };
-        let currentUser = null, currentRoomId = null, myNickname = '', myRole = null, roomUnsubscribe = null, heartbeatInterval = null, cleanupTimeout = null, debounceTimeout = null, currentRoomData = {};
+        let currentUser = null, currentRoomId = null, myNickname = '', myRole = null, roomUnsubscribe = null, heartbeatInterval = null, cleanupTimeout = null, currentRoomData = {};
         let peerConnection = null, dataChannel = null, signalingUnsubscribe = null;
         const stunServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
         
@@ -189,9 +190,21 @@
             const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
             roomUnsubscribe = onSnapshot(roomRef, (doc) => {
                 if (doc.exists()) {
+                    const oldData = currentRoomData;
                     currentRoomData = doc.data();
+                    
+                    const myTextarea = document.querySelector('textarea:not(:disabled)');
+                    const myOldBuffer = oldData?.users?.[currentUser?.uid]?.bufferedText;
+                    const myNewBuffer = currentRoomData?.users?.[currentUser?.uid]?.bufferedText;
+
                     checkAndFixTurn(currentRoomData);
                     updateUI(currentRoomData);
+                    
+                    // Firestore에 의해 텍스트가 변경되었을 때 커서 위치를 맨 뒤로 이동
+                    if (myTextarea && myOldBuffer !== myNewBuffer) {
+                        myTextarea.selectionStart = myTextarea.selectionEnd = myTextarea.value.length;
+                    }
+                    
                     cleanupInactiveUsers(roomRef, currentRoomData.users || {});
                 } else {
                     if (roomUnsubscribe) roomUnsubscribe();
@@ -237,7 +250,8 @@
             p2.textarea.classList.toggle('turn-inactive', p2Data && roomData.activeUserId !== p2Data.id);
 
             const finalText = roomData.finalText || [];
-            const activeBuffer = roomData.activeUserId && users[roomData.activeUserId] ? (users[roomData.activeUserId].bufferedText || '') : '';
+            const activeUser = roomData.users?.[roomData.activeUserId];
+            const activeBuffer = activeUser ? (activeUser.bufferedText || '') : '';
             
             const processedBuffer = activeBuffer;
 
@@ -248,26 +262,28 @@
         async function checkAndFixTurn(roomData) { const { activeUserId, users } = roomData; const userMap = users || {}; const typistEntries = Object.entries(userMap).filter(([, u]) => u.role === 'typist'); if ((!activeUserId || !userMap[activeUserId]) && typistEntries.length > 0) { const designatedFixerId = typistEntries.sort((a, b) => a[0].localeCompare(b[0]))[0][0]; if (currentUser.uid === designatedFixerId) { console.warn("주도권 오류 감지! 자동 복구를 시도합니다."); const newActiveUserId = designatedFixerId; const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); await updateDoc(roomRef, { activeUserId: newActiveUserId }); } } }
         async function leaveRoom() { if (dataChannel) dataChannel.close(); if (peerConnection) peerConnection.close(); if (signalingUnsubscribe) signalingUnsubscribe(); if (heartbeatInterval) clearInterval(heartbeatInterval); if (roomUnsubscribe) roomUnsubscribe(); const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); try { await runTransaction(db, async (transaction) => { const roomDoc = await transaction.get(roomRef); if (!roomDoc.exists()) return; const data = roomDoc.data(); const newUsers = { ...data.users }; let newActiveUserId = data.activeUserId; delete newUsers[currentUser.uid]; const remainingUserIds = Object.keys(newUsers); const remainingTypists = remainingUserIds.filter(id => newUsers[id].role === 'typist'); if (data.activeUserId === currentUser.uid) { newActiveUserId = remainingTypists.length > 0 ? remainingTypists[0] : null; } if (remainingUserIds.length === 0) { transaction.delete(roomRef); } else { transaction.update(roomRef, { users: newUsers, activeUserId: newActiveUserId }); } }); } catch (error) { console.error("방 나가기 처리 중 오류 발생: ", error); await updateDoc(roomRef, { [`users.${currentUser.uid}`]: deleteField() }).catch(console.error); } finally { window.location.href = 'index.html'; } }
         
+        // ▼▼▼ `handleTextareaInput` 함수 수정 ▼▼▼
         function handleTextareaInput(e) {
             if (isComposing) return;
-
+        
             const textarea = e.target;
             if (textarea.disabled) return;
-
+        
             const originalValue = textarea.value;
             let cursorPos = textarea.selectionStart;
-
+        
+            // 한국어 조사 자동 변환 로직
             const textBeforeCursor = originalValue.substring(0, cursorPos);
             const lastSeparatorIndex = Math.max(textBeforeCursor.lastIndexOf(' '), textBeforeCursor.lastIndexOf('\n'));
             const wordToCheck = textBeforeCursor.substring(lastSeparatorIndex + 1);
-
+        
             if (wordToCheck && wordToCheck.includes('~')) {
                 const tildeJosaList = ['~으로', '~로', '~은', '~는', '~이', '~가', '~을', '~를', '~과', '~와'];
                 for (const tildeJosa of tildeJosaList) {
                     if (wordToCheck.endsWith(tildeJosa)) {
                         const baseWord = wordToCheck.substring(0, wordToCheck.length - tildeJosa.length);
                         const josa = tildeJosa.slice(1);
-
+        
                         if (baseWord) {
                             const correctedJosa = getCorrectJosa(baseWord, josa);
                             const textToInsert = baseWord + correctedJosa;
@@ -279,7 +295,8 @@
                             
                             const newCursorPos = textBeforeWord.length + textToInsert.length;
                             textarea.setSelectionRange(newCursorPos, newCursorPos); 
-
+                            
+                            // 조사 변환 후에도 버퍼 업데이트
                             sendBufferUpdate(textarea.value);
                             return;
                         }
@@ -288,20 +305,51 @@
                 }
             }
             
+            // 연속된 공백을 하나로 합침
             const newValue = originalValue.replace(/ {2,}/g, ' ');
             if (originalValue !== newValue) {
                 const lengthDifference = originalValue.length - newValue.length;
                 textarea.value = newValue;
                 textarea.setSelectionRange(cursorPos - lengthDifference, cursorPos - lengthDifference);
             }
-
-            if (debounceTimeout) clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
-                sendBufferUpdate(textarea.value);
-            }, 20);
+        
+            // 디바운스 없이 바로 버퍼 업데이트 함수 호출
+            sendBufferUpdate(textarea.value);
         }
+        
+        // ▼▼▼ `sendBufferUpdate` 함수 수정: 자동 단어 넘기기 로직 추가 ▼▼▼
+        async function sendBufferUpdate(text) {
+            const parts = text.trim().split(/\s+/);
 
-        async function sendBufferUpdate(text) { if (dataChannel && dataChannel.readyState === 'open') { dataChannel.send(text); } const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); await updateDoc(roomRef, { [`users.${currentUser.uid}.bufferedText`]: text }); }
+            // 조건: 텍스트가 공백으로 끝나고, 공백을 제외한 단어가 2개 이상일 때
+            if (text.endsWith(' ') && parts.length >= 2) {
+                const wordToCommit = parts[0];
+                const remainingText = parts.slice(1).join(' ') + ' ';
+
+                await runTransaction(db, async (transaction) => {
+                    const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
+                    const roomDoc = await transaction.get(roomRef);
+                    if (!roomDoc.exists()) return;
+
+                    const data = roomDoc.data();
+                    const newFinalText = [...data.finalText, wordToCommit];
+
+                    transaction.update(roomRef, {
+                        finalText: newFinalText,
+                        [`users.${currentUser.uid}.bufferedText`]: remainingText,
+                    });
+                });
+            } else {
+                // 위의 조건에 맞지 않으면 일반적인 버퍼 업데이트 수행
+                const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
+                await updateDoc(roomRef, { [`users.${currentUser.uid}.bufferedText`]: text });
+            }
+
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(text);
+            }
+        }
+        // ▲▲▲ `sendBufferUpdate` 함수 수정 완료 ▲▲▲
         
         [p1.textarea, p2.textarea].forEach(ta => {
             ta.addEventListener('input', handleTextareaInput);
@@ -336,11 +384,36 @@
             }
         }
 
+        // ▼▼▼ `keydown` 이벤트 리스너 수정: F1 기능 변경 ▼▼▼
         window.addEventListener('keydown', async (e) => {
             if (isComposing) return;
 
             const myTextarea = document.querySelector('textarea:not(:disabled)');
             if (myRole !== 'typist' || !myTextarea) return;
+
+            if (e.key === 'F1') {
+                e.preventDefault();
+                await runTransaction(db, async (transaction) => {
+                    const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId);
+                    const roomDoc = await transaction.get(roomRef);
+                    if (!roomDoc.exists()) return;
+                    
+                    const data = roomDoc.data();
+                    const buffer = data.users[currentUser.uid]?.bufferedText || '';
+                    const parts = buffer.trim().split(/\s+/);
+                    
+                    if (parts.length > 0 && parts[0] !== '') {
+                        const wordToCommit = parts[0];
+                        const remainingText = parts.slice(1).join(' ');
+                        const newFinalText = [...data.finalText, wordToCommit];
+
+                        transaction.update(roomRef, {
+                            finalText: newFinalText,
+                            [`users.${currentUser.uid}.bufferedText`]: remainingText
+                        });
+                    }
+                });
+            }
 
             if (e.key === 'F3') {
                 e.preventDefault();
@@ -390,7 +463,6 @@
                         saveAutotext();
                         renderAutotextList();
 
-                        // ▼▼▼ F10 수정: 등록에 사용되지 않은 앞부분 텍스트는 남겨둠 ▼▼▼
                         const textBeforeLine = text.substring(0, lineStartIndex);
                         const textAfterLine = text.substring(lineEndIndex + 1);
                         const partToKeep = lastSpaceIndex === -1 ? '' : rawKeyPart.substring(0, lastSpaceIndex + 1);
@@ -400,7 +472,6 @@
                         myTextarea.value = newText;
                         const newCursorPos = lineStartIndex + partToKeep.length;
                         myTextarea.setSelectionRange(newCursorPos, newCursorPos);
-                        // ▲▲▲ 수정 완료 ▲▲▲
                         
                         sendBufferUpdate(myTextarea.value);
 
@@ -416,9 +487,10 @@
             }
 
             if (e.key === 'Insert') { e.preventDefault(); await passTurn(); }
-            if (e.key === 'F4') { e.preventDefault(); if (debounceTimeout) clearTimeout(debounceTimeout); const trimmedText = myTextarea.value.trimEnd(); const lastSeparatorIndex = Math.max(trimmedText.lastIndexOf(' '), trimmedText.lastIndexOf('\n')); let newText = ""; if (lastSeparatorIndex !== -1) { newText = trimmedText.substring(0, lastSeparatorIndex); } myTextarea.value = newText; sendBufferUpdate(newText); }
+            if (e.key === 'F4') { e.preventDefault(); const trimmedText = myTextarea.value.trimEnd(); const lastSeparatorIndex = Math.max(trimmedText.lastIndexOf(' '), trimmedText.lastIndexOf('\n')); let newText = ""; if (lastSeparatorIndex !== -1) { newText = trimmedText.substring(0, lastSeparatorIndex); } myTextarea.value = newText; sendBufferUpdate(newText); }
             if (e.key === 'F8') { e.preventDefault(); if (currentRoomData.activeUserId !== currentUser.uid) return; const opponent = Object.entries(currentRoomData.users || {}).find(([id, user]) => user && user.role === 'typist' && id !== currentUser.uid); if (!opponent) return; const [opponentId, opponentData] = opponent; const opponentBuffer = opponentData.bufferedText || ''; const trimmedText = opponentBuffer.trimStart(); const firstSpace = trimmedText.indexOf(' '); const firstNewline = trimmedText.indexOf('\n'); let newText = ""; if (firstSpace !== -1 || firstNewline !== -1) { let firstSeparatorIndex; if (firstSpace === -1) firstSeparatorIndex = firstNewline; else if (firstNewline === -1) firstSeparatorIndex = firstSpace; else firstSeparatorIndex = Math.min(firstSpace, firstNewline); newText = trimmedText.substring(firstSeparatorIndex + 1).trimStart(); } const opponentTextarea = (p1.textarea.disabled) ? p1.textarea : p2.textarea; opponentTextarea.value = newText; if (dataChannel && dataChannel.readyState === 'open') { dataChannel.send(newText); } const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, currentRoomId); await updateDoc(roomRef, { [`users.${opponentId}.bufferedText`]: newText }); }
         });
+        // ▲▲▲ `keydown` 이벤트 리스너 수정 완료 ▲▲▲
 
         async function passTurn() {
             await runTransaction(db, async (transaction) => {
@@ -467,9 +539,8 @@
             if (!currentRoomData) return;
             const users = currentRoomData.users || {};
             const finalText = currentRoomData.finalText || [];
-            const activeBuffer = currentRoomData.activeUserId && users[currentRoomData.activeUserId] 
-                ? (users[currentRoomData.activeUserId].bufferedText || '') 
-                : '';
+            const activeUser = currentRoomData.users?.[currentRoomData.activeUserId];
+            const activeBuffer = activeUser ? (activeUser.bufferedText || '') : '';
             const fullText = [...finalText, activeBuffer].join(' ').trim();
             if (!fullText) return;
             try {
@@ -496,8 +567,13 @@
                         const roomData = roomDoc.data();
                         const activeUserId = roomData.activeUserId;
                         const updates = { finalText: [] };
-                        if (activeUserId && roomData.users[activeUserId]) {
-                            updates[`users.${activeUserId}.bufferedText`] = '';
+                        // 모든 입력자의 버퍼를 비웁니다.
+                        if (roomData.users) {
+                            for (const uid in roomData.users) {
+                                if (roomData.users[uid].role === 'typist') {
+                                    updates[`users.${uid}.bufferedText`] = '';
+                                }
+                            }
                         }
                         transaction.update(roomRef, updates);
                     });
