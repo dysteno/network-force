@@ -7,28 +7,59 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            background-color: #111827;
-        }
-        body {
-            font-family: 'Noto Sans KR', sans-serif;
-        }
+        html, body { height: 100%; overflow: hidden; background-color: #111827; }
+        body { font-family: 'Noto Sans KR', sans-serif; }
         .custom-scroll::-webkit-scrollbar { width: 8px; }
         .custom-scroll::-webkit-scrollbar-track { background: #1f2937; }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background-color: #4b5563;
-            border-radius: 10px;
-            border: 2px solid #1f2937;
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 10px; border: 2px solid #1f2937; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); }
+        .room-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out; display: flex; flex-direction: column; background-color: #1f2937; border: 2px solid transparent; /* 기본 테두리는 투명 */ }
+        .room-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); }
+        .room-card.room-active { border-color: #4ade80; /* 밝은 녹색 테두리 */ }
+        .room-card.room-active:hover { box-shadow: 0 8px 25px rgba(74, 222, 128, 0.4); /* 호버 시 녹색 그림자 */ }
+        .info-item { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 0.875rem; }
+        .info-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .info-item .label { color: #e2e8f0; }
+        .card-thumbnail { 
+            position: relative; /* 삭제 버튼 위치 기준을 위해 relative 추가 */
+            background-color: #334155; 
+            padding: 1.25rem 1rem; 
+            text-align: center; 
         }
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
+        .card-thumbnail.has-pattern { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%231e293b' fill-opacity='0.4'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41 1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41zM20 18.6l2.83-2.83 1.41 1.41L21.41 20l2.83 2.83-1.41 1.41L20 21.41l-2.83 2.83-1.41-1.41L18.59 20l-2.83-2.83 1.41-1.41L20 18.59z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+        .badge { font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-weight: 500; margin-left: 0.5rem;}
+        .badge-ko { background-color: #3b82f6; color: white; }
+        .badge-trans { background-color: #10b981; color: white; }
+        
+        /* ▼▼▼ [수정됨] 방 삭제 버튼 스타일 (휴지통 아이콘) ▼▼▼ */
+        .delete-room-btn { 
+            position: absolute; 
+            top: 8px; 
+            right: 8px; 
+            background-color: rgba(239, 68, 68, 0); /* 기본 투명 */
+            color: #94a3b8; /* 기본 아이콘 색상 (회색) */
+            border: none; 
+            width: 28px; 
+            height: 28px; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            z-index: 10;
         }
-        .room-card .delete-btn {
-            opacity: 1; 
+        .delete-room-btn:hover { 
+            background-color: rgba(239, 68, 68, 0.8); /* 호버 시 붉은 배경 */
+            color: white; /* 호버 시 아이콘 색상 (흰색) */
+            transform: scale(1.1);
         }
+        .delete-room-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        /* ▲▲▲ [수정 완료] ▲▲▲ */
+
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 flex flex-col items-center justify-center p-4">
@@ -38,11 +69,16 @@
             <h1 class="text-2xl font-bold text-white">방 목록</h1>
             <button id="show-create-room-modal-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">새 방 만들기</button>
         </header>
+
         <main id="room-list-container" class="flex-1 overflow-y-auto custom-scroll p-1">
-            <div id="room-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                </div>
-            <p id="no-rooms-message" class="text-center text-gray-500 mt-10 text-lg hidden">현재 생성된 방이 없습니다. 새 방을 만들어보세요!</p>
+            <div id="room-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <p id="no-rooms-message" class="text-center text-gray-500 mt-10 text-lg hidden">서버에 연결하는 중...</p>
         </main>
+
+        <footer class="flex-shrink-0 p-2 bg-gray-800/50 rounded-lg flex justify-center items-center gap-2 border border-gray-700">
+            <input type="text" id="search-input" placeholder="방 이름으로 검색" class="bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64">
+            <button id="search-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">검색</button>
+        </footer>
     </div>
 
     <div id="create-room-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
@@ -51,6 +87,16 @@
             <input type="text" id="create-room-name" placeholder="방 이름" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <input type="text" id="create-nickname" placeholder="닉네임" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <input type="password" id="create-room-password" placeholder="비밀번호 (선택 사항)" class="w-full bg-gray-700 text-white px-4 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex justify-center gap-6 text-white pt-2">
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="create-room-type" value="korean" class="form-radio h-5 w-5 text-blue-500" checked>
+                    <span class="ml-2">한글 전용</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="create-room-type" value="translation" class="form-radio h-5 w-5 text-green-500">
+                    <span class="ml-2">번역</span>
+                </label>
+            </div>
             <div class="flex justify-end gap-4">
                 <button id="cancel-create-room-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md">취소</button>
                 <button id="confirm-create-room-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md">만들기</button>
@@ -58,7 +104,6 @@
             <p id="create-error-message" class="text-red-400 h-5 text-sm"></p>
         </div>
     </div>
-
     <div id="join-room-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
         <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md border border-gray-700 p-6 space-y-4">
             <h2 class="text-2xl font-bold text-white">방 참여</h2>
@@ -77,223 +122,206 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // ▼▼▼ `runTransaction`을 추가로 import 합니다. ▼▼▼
-        import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined'
-            ? JSON.parse(__firebase_config)
-            : {
-                apiKey: "AIzaSyARtsxNfGRdRJl504zzasRMSubwchaJE5Y",
-                authDomain: "network-force-f765c.firebaseapp.com",
-                projectId: "network-force-f765c",
-                storageBucket: "network-force-f765c.firebasestorage.app",
-                messagingSenderId: "174902107501",
-                appId: "1:174902107501:web:57c565d6500ff5dfa94e64"
-            };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-collab-typer-v6';
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        let currentUser = null;
-        let lobbyUnsubscribe = null;
-        let selectedRoomId = null;
-
-        const roomList = document.getElementById('room-list');
         const noRoomsMessage = document.getElementById('no-rooms-message');
+        const roomListEl = document.getElementById('room-list');
         const createRoomModal = document.getElementById('create-room-modal');
         const joinRoomModal = document.getElementById('join-room-modal');
         const showCreateRoomModalBtn = document.getElementById('show-create-room-modal-btn');
-        const createRoomNameInput = document.getElementById('create-room-name');
-        const createNicknameInput = document.getElementById('create-nickname');
-        const createRoomPasswordInput = document.getElementById('create-room-password');
         const cancelCreateBtn = document.getElementById('cancel-create-room-btn');
         const confirmCreateBtn = document.getElementById('confirm-create-room-btn');
-        const createErrorMessage = document.getElementById('create-error-message');
-        const joinRoomNameDisplay = document.getElementById('join-room-name-display');
-        const joinNicknameInput = document.getElementById('join-nickname');
-        const joinRoomPasswordInput = document.getElementById('join-room-password');
         const cancelJoinBtn = document.getElementById('cancel-join-room-btn');
         const confirmJoinBtn = document.getElementById('confirm-join-room-btn');
-        const joinErrorMessage = document.getElementById('join-error-message');
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                loadLobby();
-            } else {
-                try {
-                    await signInAnonymously(auth);
-                } catch (error) { console.error("Authentication Error:", error); }
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+
+        let currentRoomsData = {}; 
+        let selectedRoomId = null;
+
+        function timeAgo(isoString) {
+            const now = new Date(); const past = new Date(isoString); const seconds = Math.floor((now - past) / 1000);
+            let interval = seconds / 31536000; if (interval > 1) return Math.floor(interval) + "년 전";
+            interval = seconds / 2592000; if (interval > 1) return Math.floor(interval) + "달 전";
+            interval = seconds / 86400; if (interval > 1) return Math.floor(interval) + "일 전";
+            interval = seconds / 3600; if (interval > 1) return Math.floor(interval) + "시간 전";
+            interval = seconds / 60; if (interval > 1) return Math.floor(interval) + "분 전";
+            return "방금 전";
+        }
+
+        function renderRoomList(roomsToRender) {
+            roomListEl.innerHTML = ''; 
+            const hasRooms = Object.keys(roomsToRender).length > 0;
+            noRoomsMessage.classList.toggle('hidden', hasRooms);
+
+            if (!hasRooms && searchInput.value.trim()) {
+                 noRoomsMessage.textContent = `'${searchInput.value}' 검색 결과가 없습니다.`;
+            } else if (!hasRooms) {
+                 noRoomsMessage.textContent = '현재 생성된 방이 없습니다. 새 방을 만들어보세요!';
             }
-        });
 
-        function loadLobby() {
-            if (lobbyUnsubscribe) lobbyUnsubscribe();
-            const roomsRef = collection(db, `artifacts/${appId}/public/data/typing-rooms`);
-            lobbyUnsubscribe = onSnapshot(roomsRef, (snapshot) => {
-                roomList.innerHTML = '';
-                noRoomsMessage.classList.toggle('hidden', snapshot.docs.length > 0);
-                snapshot.docs.forEach(doc => {
-                    const roomData = doc.data();
-                    const roomEl = document.createElement('div');
-                    roomEl.className = 'room-card bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700 flex justify-between items-center';
-                    
-                    const contentEl = document.createElement('div');
-                    contentEl.className = 'flex-grow cursor-pointer';
-                    contentEl.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-lg font-bold text-white truncate">${roomData.roomName}</h3>
-                            <div class="flex items-center gap-2 text-gray-400">
-                                ${roomData.hasPassword ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>' : ''}
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/></svg>
-                                <span>${Object.keys(roomData.users || {}).length}</span>
-                            </div>
+
+            for (const roomId in roomsToRender) {
+                const roomData = roomsToRender[roomId];
+                const roomEl = document.createElement('div');
+                const isActive = roomData.typistCount > 0 || roomData.observerCount > 0;
+                // 수정: border-l-4 blue 삭제하고, room-active 클래스 토글링으로 전체 테두리 색 변경
+                roomEl.className = `room-card rounded-lg shadow-lg border overflow-hidden cursor-pointer ${isActive ? 'room-active' : 'border-transparent'}`; 
+                roomEl.dataset.roomId = roomId;
+
+                let roomTypeBadge = '';
+                if (roomData.roomType === 'korean') {
+                    roomTypeBadge = '<span class="badge badge-ko">한글</span>';
+                } else if (roomData.roomType === 'translation') {
+                    roomTypeBadge = '<span class="badge badge-trans">번역</span>';
+                }
+
+                // ▼▼▼ [수정됨] 삭제 버튼 HTML (휴지통 아이콘 SVG) ▼▼▼
+                roomEl.innerHTML = `
+                    <div class="card-thumbnail has-pattern">
+                        <button class="delete-room-btn" data-room-id="${roomId}" title="방 삭제">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.84 0a.75.75 0 01-1.5.06l-.3 7.5a.75.75 0 111.5-.06l.3-7.5z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div class="flex justify-end h-4">${roomData.hasPassword ? '<svg class="flex-shrink-0 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>' : ''}</div>
+                        <h3 class="text-xl font-bold text-white truncate">${roomData.roomName}${roomTypeBadge}</h3>
+                    </div>
+                    <div class="p-4 flex flex-col justify-between flex-grow">
+                        <div class="space-y-2">
+                            <div class="info-item"><svg class="text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span class="label">${timeAgo(roomData.createdAt)} 생성</span></div>
+                            <div class="info-item"><svg class="text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg><span class="label">입력 ${roomData.typistCount}/2</span><span class="label ml-2">관전 ${roomData.observerCount}명</span></div>
                         </div>
-                    `;
-                    contentEl.addEventListener('click', () => openJoinModal(doc.id, roomData));
-                    roomEl.appendChild(contentEl);
-
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = '삭제';
-                    deleteBtn.className = 'delete-btn ml-4 bg-red-800 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm';
-                    deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        if (confirm(`'${roomData.roomName}' 방을 정말 삭제하시겠습니까?`)) {
-                            deleteRoom(doc.id);
-                        }
-                    });
-                    roomEl.appendChild(deleteBtn);
-                    
-                    roomList.appendChild(roomEl);
-                });
-            });
+                    </div>`;
+                // ▲▲▲ [수정 완료] ▲▲▲
+                roomListEl.appendChild(roomEl);
+            }
         }
 
-        async function deleteRoom(roomId) {
-            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, roomId);
-            await deleteDoc(roomRef);
-        }
+        const enterRoom = (params) => {
+            const queryString = new URLSearchParams(params).toString();
+            window.location.href = `room.html?${queryString}`;
+        };
 
-        function openJoinModal(roomId, roomData) {
-            selectedRoomId = roomId;
-            joinRoomNameDisplay.textContent = roomData.roomName;
-            joinRoomPasswordInput.style.display = roomData.hasPassword ? 'block' : 'none';
-            joinErrorMessage.textContent = '';
-            joinNicknameInput.value = '';
-            joinRoomPasswordInput.value = '';
-            joinRoomModal.classList.add('flex');
-            joinRoomModal.classList.remove('hidden');
-        }
-
-        showCreateRoomModalBtn.addEventListener('click', () => {
-            createErrorMessage.textContent = '';
-            createRoomNameInput.value = '';
-            createNicknameInput.value = '';
-            createRoomPasswordInput.value = '';
-            createRoomModal.classList.add('flex');
-            createRoomModal.classList.remove('hidden');
-        });
-
+        showCreateRoomModalBtn.addEventListener('click', () => { createRoomModal.classList.add('flex'); createRoomModal.classList.remove('hidden'); });
         cancelCreateBtn.addEventListener('click', () => createRoomModal.classList.add('hidden'));
         cancelJoinBtn.addEventListener('click', () => joinRoomModal.classList.add('hidden'));
 
-        confirmCreateBtn.addEventListener('click', async () => {
-            const roomName = createRoomNameInput.value.trim();
-            const nickname = createNicknameInput.value.trim();
+        confirmCreateBtn.addEventListener('click', () => {
+            const roomName = document.getElementById('create-room-name').value.trim();
+            const nickname = document.getElementById('create-nickname').value.trim();
+            const password = document.getElementById('create-room-password').value;
+            const roomType = document.querySelector('input[name="create-room-type"]:checked').value; 
             if (!roomName || !nickname) {
-                createErrorMessage.textContent = "방 이름과 닉네임을 모두 입력하세요.";
+                document.getElementById('create-error-message').textContent = "방 이름과 닉네임을 모두 입력하세요.";
                 return;
             }
-            createErrorMessage.textContent = '';
-            const password = createRoomPasswordInput.value;
-            const newRoomId = doc(collection(db, 'dummy')).id;
-            
-            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, newRoomId);
-            const initialUserData = {
-                joinedAt: serverTimestamp(),
-                role: 'typist',
-                nickname: nickname,
-                lastSeen: serverTimestamp() 
-            };
-
-            await setDoc(roomRef, {
-                roomName: roomName,
-                password: password || null,
-                hasPassword: !!password,
-                createdAt: serverTimestamp(),
-                creatorId: currentUser.uid,
-                activeUserId: currentUser.uid,
-                finalText: [],
-                users: { [currentUser.uid]: initialUserData },
-            });
-
-            enterRoom(newRoomId, nickname, 'typist');
+            socket.emit('createRoom', { roomName, nickname, password, roomType });
         });
 
-        // ▼▼▼ `confirmJoinBtn` 이벤트 리스너의 로직을 아래 내용으로 교체합니다. ▼▼▼
-        confirmJoinBtn.addEventListener('click', async () => {
-            const nickname = joinNicknameInput.value.trim();
+        // ▼▼▼ [수정됨] 삭제 버튼 클릭 이벤트 리스너 추가 ▼▼▼
+        roomListEl.addEventListener('click', (e) => {
+            // 삭제 버튼 클릭 시
+            const deleteBtn = e.target.closest('.delete-room-btn');
+            if (deleteBtn) {
+                e.stopPropagation(); // 방 참여(카드 클릭) 이벤트 방지
+                const roomId = deleteBtn.dataset.roomId;
+                const roomData = currentRoomsData[roomId];
+                if (roomData) {
+                    if (confirm(`'${roomData.roomName}' 방을(를) 정말 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+                        socket.emit('deleteRoom', { roomId });
+                    }
+                }
+                return; // 삭제 로직 후 종료
+            }
+
+            // (기존) 카드 클릭(방 참여) 시
+            const targetCard = e.target.closest('.room-card');
+            if (!targetCard) return;
+            selectedRoomId = targetCard.dataset.roomId;
+            const roomData = currentRoomsData[selectedRoomId]; 
+            if (roomData) {
+                document.getElementById('join-room-name-display').textContent = roomData.roomName;
+                document.getElementById('join-room-password').style.display = roomData.hasPassword ? 'block' : 'none';
+                document.getElementById('join-error-message').textContent = '';
+                document.getElementById('join-nickname').value = '';
+                document.getElementById('join-room-password').value = '';
+                joinRoomModal.classList.add('flex');
+                joinRoomModal.classList.remove('hidden');
+            }
+        });
+        // ▲▲▲ [수정 완료] ▲▲▲
+
+        confirmJoinBtn.addEventListener('click', () => {
+            const nickname = document.getElementById('join-nickname').value.trim();
             if (!nickname) {
-                joinErrorMessage.textContent = "닉네임을 입력하세요.";
+                document.getElementById('join-error-message').textContent = "닉네임을 입력하세요.";
                 return;
             }
-            joinErrorMessage.textContent = '';
-
-            const password = joinRoomPasswordInput.value;
+            const password = document.getElementById('join-room-password').value;
             const role = document.querySelector('input[name="join-role-select"]:checked').value;
-            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, selectedRoomId);
 
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const roomSnap = await transaction.get(roomRef);
-                    if (!roomSnap.exists()) {
-                        throw new Error("존재하지 않는 방입니다.");
-                    }
-
-                    const roomData = roomSnap.data();
-                    if (roomData.hasPassword && roomData.password !== password) {
-                        throw new Error("비밀번호가 틀렸습니다.");
-                    }
-
-                    const newUsers = { ...roomData.users };
-                    newUsers[currentUser.uid] = {
-                        joinedAt: serverTimestamp(),
-                        role: role,
-                        nickname: nickname,
-                        lastSeen: serverTimestamp()
-                    };
-
-                    let newActiveUserId = roomData.activeUserId;
-                    const typists = Object.values(newUsers).filter(u => u.role === 'typist');
-
-                    // 만약 참여하는 내가 유일한 입력자라면, 주도권을 획득
-                    if (role === 'typist' && typists.length === 1) {
-                        newActiveUserId = currentUser.uid;
-                    }
-                    
-                    transaction.update(roomRef, { 
-                        users: newUsers,
-                        activeUserId: newActiveUserId
-                    });
-                });
-
-                enterRoom(selectedRoomId, nickname, role);
-
-            } catch (error) {
-                joinErrorMessage.textContent = error.message;
-            }
+            enterRoom({
+                id: selectedRoomId,
+                nickname,
+                password,
+                role
+            });
         });
-        // ▲▲▲ 여기까지 교체 ▲▲▲
 
-        function enterRoom(roomId, nickname, role) {
-            const url = `room.html?id=${roomId}&nickname=${encodeURIComponent(nickname)}&role=${encodeURIComponent(role)}`;
-            window.location.href = url;
+        socket.on('connect', () => {
+             console.log('서버에 성공적으로 연결되었습니다. ID:', socket.id);
+             socket.emit('requestRoomList'); 
+        });
+        socket.on('disconnect', () => {
+            console.log('서버와의 연결이 끊겼습니다.');
+            noRoomsMessage.textContent = '서버와 연결이 끊겼습니다. 페이지를 새로고침 해주세요.';
+            noRoomsMessage.classList.remove('hidden'); 
+            roomListEl.innerHTML = ''; 
+        });
+
+        socket.on('updateRoomList', (rooms) => {
+            currentRoomsData = rooms; 
+            filterAndRenderRooms();
+        });
+        
+        socket.on('roomCreated', ({ roomId, nickname, role }) => {
+            const password = document.getElementById('create-room-password').value;
+            enterRoom({ id: roomId, nickname, role, password });
+        });
+
+        socket.on('createRoomError', ({ message }) => {
+            document.getElementById('create-error-message').textContent = message;
+        });
+
+        // ▼▼▼ [추가됨] 방 삭제 오류 리스너 ▼▼▼
+        socket.on('deleteRoomError', ({ message }) => {
+            alert(`방 삭제 오류: ${message}`);
+        });
+        // ▲▲▲ [추가 완료] ▲▲▲
+
+        function filterAndRenderRooms() {
+            const searchTerm = searchInput.value.trim().toLowerCase();
+            if (!searchTerm) {
+                renderRoomList(currentRoomsData); 
+                return;
+            }
+
+            const filteredRooms = {};
+            for (const roomId in currentRoomsData) {
+                if (currentRoomsData[roomId].roomName.toLowerCase().includes(searchTerm)) {
+                    filteredRooms[roomId] = currentRoomsData[roomId];
+                }
+            }
+            renderRoomList(filteredRooms); 
         }
+
+        searchButton.addEventListener('click', filterAndRenderRooms);
+        searchInput.addEventListener('input', filterAndRenderRooms);
+
     </script>
 </body>
 </html>

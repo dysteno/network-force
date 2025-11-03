@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "network-force-f765c"
-  }
+    "default": "sokgi-study"
+  },
+  "targets": {},
+  "etags": {}
 }

@@ -49,8 +49,16 @@
             transition: transform 0.3s ease-in-out;
             z-index: 100;
         }
-        body:hover #menu-bar {
+        #menu-bar.visible {
             transform: translateY(0);
+        }
+        #bottom-trigger {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            z-index: 99;
         }
         .control-group {
             display: flex;
@@ -89,6 +97,8 @@
 <body>
     <div id="presentation-text">불러오는 중...</div>
 
+    <div id="bottom-trigger"></div>
+
     <div id="menu-bar">
         <div class="control-group">
             <label>텍스트 크기</label>
@@ -105,21 +115,10 @@
     </div>
 
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script src="/socket.io/socket.io.js"></script>
 
-        const firebaseConfig = { apiKey: "AIzaSyARtsxNfGRdRJl504zzasRMSubwchaJE5Y", authDomain: "network-force-f765c.firebaseapp.com", projectId: "network-force-f765c", storageBucket: "network-force-f765c.firebasestorage.app", messagingSenderId: "174902107501", appId: "1:174902107501:web:57c565d6500ff5dfa94e64" };
-        const appId = 'default-collab-typer-v6';
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
+    <script>
         const presentationTextElem = document.getElementById('presentation-text');
-        let roomUnsubscribe = null;
-
         const btnFontDecrease = document.getElementById('btn-font-decrease');
         const btnFontIncrease = document.getElementById('btn-font-increase');
         const btnFontReset = document.getElementById('btn-font-reset');
@@ -127,9 +126,28 @@
         const btnPaddingIncrease = document.getElementById('btn-padding-increase');
         const btnPaddingReset = document.getElementById('btn-padding-reset');
 
+        const menuBar = document.getElementById('menu-bar');
+        const bottomTrigger = document.getElementById('bottom-trigger');
+        let menuHideTimer = null;
+
+        function showMenu() {
+            clearTimeout(menuHideTimer);
+            menuBar.classList.add('visible');
+        }
+
+        function hideMenu() {
+            menuHideTimer = setTimeout(() => {
+                menuBar.classList.remove('visible');
+            }, 300);
+        }
+
+        bottomTrigger.addEventListener('mouseenter', showMenu);
+        bottomTrigger.addEventListener('mouseleave', hideMenu);
+        menuBar.addEventListener('mouseenter', showMenu);
+        menuBar.addEventListener('mouseleave', hideMenu);
+
         const FONT_STEP = 0.1;
-        // ▼▼▼ PADDING_STEP 값을 2로 수정 ▼▼▼
-        const PADDING_STEP = 2; 
+        const PADDING_STEP = 2;
         const INITIAL_FONT_SIZE = 2.25;
         const INITIAL_PADDING_BOTTOM = 2;
 
@@ -141,7 +159,6 @@
             presentationTextElem.style.paddingBottom = `${currentPaddingBottom}rem`;
             localStorage.setItem('presenter_fontSize', currentFontSize);
             localStorage.setItem('presenter_paddingBottom', currentPaddingBottom);
-            // ▼▼▼ 자동 스크롤 로직을 이 함수에 추가 ▼▼▼
             presentationTextElem.scrollTop = presentationTextElem.scrollHeight;
         }
 
@@ -159,7 +176,6 @@
         });
 
         btnPaddingIncrease.addEventListener('click', () => {
-            // ▼▼▼ 최대 제한(if) 조건 제거 ▼▼▼
             currentPaddingBottom += PADDING_STEP;
             applyStyles();
         });
@@ -171,54 +187,75 @@
             currentPaddingBottom = INITIAL_PADDING_BOTTOM;
             applyStyles();
         });
-        
+
         applyStyles();
 
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                initializeFirestoreListener();
-            } else {
-                signInAnonymously(auth).catch(err => {
-                    presentationTextElem.textContent = `인증 오류: ${err.message}`;
+        // --- Socket.io 로직 시작 ---
+        const socket = io();
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('id');
+
+        if (!roomId) {
+            presentationTextElem.textContent = '오류: 방 ID를 찾을 수 없습니다.';
+        }
+
+        socket.on('connect', () => {
+            if (roomId) {
+                socket.emit('enterRoom', {
+                    roomId,
+                    nickname: 'Presenter',
+                    role: 'observer',
+                    password: ''
                 });
+                presentationTextElem.textContent = '방에 연결하는 중...';
             }
         });
 
-        function initializeFirestoreListener() {
-            const params = new URLSearchParams(window.location.search);
-            const roomId = params.get('id');
+        socket.on('disconnect', () => {
+            presentationTextElem.textContent = '서버와 연결이 끊겼습니다.';
+        });
 
-            if (!roomId) {
-                presentationTextElem.textContent = '오류: 방 정보를 찾을 수 없습니다.';
+        socket.on('roomError', ({ message }) => {
+            presentationTextElem.textContent = `오류: ${message}`;
+        });
+
+        // ▼▼▼ [추가됨] 방 삭제 알림 수신 리스너 ▼▼▼
+        socket.on('roomDeleted', ({ message }) => {
+            alert(message);
+            // 프레젠터 뷰는 로비로 이동하는 대신 창을 닫도록 처리
+            window.close();
+        });
+        // ▲▲▲ [추가 완료] ▲▲▲
+
+        // ▼▼▼ [수정됨] 텍스트 렌더링 로직 수정 (inactiveBuffer 제외) ▼▼▼
+        socket.on('updateRoomState', (state) => {
+            if (!state) {
+                presentationTextElem.textContent = '방 정보를 불러오는 데 실패했습니다.';
                 return;
             }
 
-            const roomRef = doc(db, `artifacts/${appId}/public/data/typing-rooms`, roomId);
-            roomUnsubscribe = onSnapshot(roomRef, (doc) => {
-                if (doc.exists()) {
-                    const roomData = doc.data();
-                    const users = roomData.users || {};
-                    const finalText = roomData.finalText || [];
-                    const activeBuffer = roomData.activeUserId && users[roomData.activeUserId] 
-                        ? (users[roomData.activeUserId].bufferedText || '') 
-                        : '';
-                    
-                    const fullText = [...finalText, activeBuffer].join(' ').trim();
-                    presentationTextElem.innerHTML = fullText.replace(/\n/g, '<br>');
-                    
-                    presentationTextElem.scrollTop = presentationTextElem.scrollHeight;
-                } else {
-                    presentationTextElem.textContent = '방이 삭제되었거나 존재하지 않습니다.';
-                    if (roomUnsubscribe) roomUnsubscribe();
-                }
-            }, (error) => {
-                presentationTextElem.textContent = `데이터 동기화 오류: ${error.message}`;
-            });
-        }
+            const { finalText, activeBuffer, lastProcessedBuffer } = state;
 
-        window.addEventListener('beforeunload', () => {
-            if (roomUnsubscribe) roomUnsubscribe();
+            const completed = (finalText || []).filter(line => line !== null && line !== undefined);
+            let textParts = [...completed];
+            let joiner = '\n'; // 프레젠터 뷰는 항상 '줄바꿈'으로 연결
+
+            // '활성 버퍼'에서는 '아직 처리 안된 새 텍스트'만 가져옴
+            const newTextInActiveBuffer = activeBuffer.substring(lastProcessedBuffer.length).trim();
+
+            if (newTextInActiveBuffer) {
+                textParts.push(newTextInActiveBuffer);
+            }
+            // inactiveBuffer(비활성 입력자)는 여기서 제외
+
+            // 최종 렌더링
+            const fullText = textParts.join(joiner);
+            presentationTextElem.innerHTML = fullText.replace(/\n/g, '<br>');
+
+            // 자동 스크롤
+            presentationTextElem.scrollTop = presentationTextElem.scrollHeight;
         });
+        // ▲▲▲ [수정 완료] ▲▲▲
 
     </script>
 </body>
