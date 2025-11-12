@@ -270,7 +270,7 @@
                     입력자: ${typists.length}
                 </span>
                 <span class="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 10a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5a.75.75 0 01.75-.75zM10 8a.75.75 0 01.75.75v.01a.75.75 0 01-1.5 0v-.01A.75.75 0 0110 8zm0-5a5.75 5.T5 0 100 11.5 5.75 5.75 0 000-11.5zM3 10a7 7 0 1114 0 7 7 0 01-14 0z" clip-rule="evenodd" /></svg> 
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 10a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5a.75.75 0 01.75-.75zM10 8a.75.75 0 01.75.75v.01a.75.75 0 01-1.5 0v-.01A.75.75 0 0110 8zm0-5a5.75 5.75 0 100 11.5 5.75 5.75 0 000-11.5zM3 10a7 7 0 1114 0 7 7 0 01-14 0z" clip-rule="evenodd" /></svg> 
                     관전자: ${observers.length}
                 </span>
             `;
@@ -293,21 +293,26 @@
                     opponentUI.textarea.classList.add('hidden');
                 }
 
+                // ▼▼▼ [핵심 수정] 텍스트 영역 업데이트 로직 변경 ▼▼▼
+                const isMyTurn = state.activeUserId === myId;
+
+                // 1. '내' 텍스트 영역은 '턴 넘기기'나 '초기화' 같은 명시적 이벤트 시에만 업데이트합니다.
+                //    일반 타이핑 시에는 서버 데이터로 덮어쓰지 않습니다.
                 const myBuffer = isMyTurn ? state.activeBuffer : state.inactiveBuffer;
-                const opponentBuffer = isMyTurn ? state.inactiveBuffer : state.activeBuffer;
-
-                const isMyTextareaActive = document.activeElement === myUI.textarea;
-
-                if (myBuffer === "") {
-                    myUI.textarea.value = "";
-                }
-                else if (!isMyTextareaActive) {
+                if (myUI.textarea.value !== myBuffer && !document.hasFocus()) {
+                    // 창이 활성화되어 있지 않을 때만 동기화 (예: 다른 탭에 갔다 왔을 때)
+                    myUI.textarea.value = myBuffer || "";
+                } else if (e.type === 'passTurn' || e.type === 'clearText') { // (가상) 이벤트 타입으로 구분
                     myUI.textarea.value = myBuffer || "";
                 }
 
+
+                // 2. '상대방' 텍스트 영역은 항상 서버 데이터로 업데이트합니다.
+                const opponentBuffer = isMyTurn ? state.inactiveBuffer : state.activeBuffer;
                 if (opponentData) {
                     opponentUI.textarea.value = opponentBuffer || "";
                 }
+                // ▲▲▲ [핵심 수정 완료] ▲▲▲
 
                 myUI.container.classList.toggle('turn-active', isMyTurn);
                 myUI.container.classList.toggle('turn-inactive', !isMyTurn);

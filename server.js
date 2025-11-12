@@ -373,9 +373,9 @@ io.on('connection', (socket) => {
                 await handleTranslation(room, io, roomId);
             }
 
-            // 5. 업데이트된 '인메모리' 상태를 즉시 클라이언트로 전파합니다.
+            // 5. [핵심 변경] 업데이트된 상태를 '나를 제외한' 다른 사람들에게만 전파합니다.
             if (!room.isTranslating) {
-                io.to(roomId).emit('updateRoomState', getRoomState(room));
+                socket.broadcast.to(roomId).emit('updateRoomState', getRoomState(room));
             }
 
         } catch (error) {
